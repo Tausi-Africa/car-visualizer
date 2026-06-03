@@ -1,0 +1,32 @@
+:root {
+  color-scheme: dark;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: #0d0f14;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Mobile: stop pull-to-refresh / rubber-banding over the viewers, and
+     remove the grey tap flash on the floating controls. */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The floating viewer controls are chrome, not selectable content. */
+button,
+label.pill {
+  -webkit-user-select: none;
+  user-select: none;
+}
