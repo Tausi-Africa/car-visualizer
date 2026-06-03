@@ -111,6 +111,7 @@ The app is responsive and touch-first:
 
 - **Layout** — below 640px the header stacks and the tabs become full-width; the canvas uses `100dvh` to avoid the mobile browser-chrome viewport jump. Floating control hints are hidden on small screens to keep the view clear.
 - **Gestures** — the 3D car uses Three.js OrbitControls (one-finger orbit, two-finger pinch-zoom, drag-pan). The 360° viewer's `PanoramaControls` implements one-finger look + **two-finger pinch-to-zoom** via Pointer Events, with `touch-action: none` so the page never scrolls while you interact.
+- **Aspect-adaptive field of view** — Three.js's `camera.fov` is *vertical*, so a fixed value makes a tall portrait screen look heavily zoomed-in (you'd see only a narrow horizontal slice of the panorama). `PanoramaControls` instead tracks a target **horizontal** FOV and derives the vertical FOV from the live aspect ratio each frame (capped to limit distortion), so the amount of scene you see stays consistent between portrait, landscape and desktop.
 - **GPU limits** — the panorama auto-downscales to the device's `maxTextureSize` (many phones cap at 4096px) so a large equirectangular image never fails to upload (which otherwise shows as a black sphere).
 - Pull-to-refresh / rubber-banding and tap-highlight flashes are suppressed over the viewers.
 

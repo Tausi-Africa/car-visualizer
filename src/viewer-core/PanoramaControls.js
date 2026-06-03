@@ -20,8 +20,16 @@ export class PanoramaControls {
 
     this.lon = options.initialLon ?? 0
     this.lat = options.initialLat ?? 0
-    this.minFov = options.minFov ?? 30
-    this.maxFov = options.maxFov ?? 90
+
+    // Zoom is tracked as a *horizontal* field of view, so the amount of the
+    // scene you see left-to-right stays consistent between landscape and
+    // portrait. The camera's (vertical) fov is derived from this + the current
+    // aspect ratio every frame. Three.js's camera.fov is vertical, so a fixed
+    // value would make portrait screens look heavily zoomed-in.
+    this.minHfov = options.minHfov ?? 40
+    this.maxHfov = options.maxHfov ?? 100
+    this.maxVfov = options.maxVfov ?? 105 // cap distortion on very tall screens
+    this.hfov = THREE.MathUtils.clamp(options.initialHfov ?? 90, this.minHfov, this.maxHfov)
 
     // Active pointers by id — lets us tell a one-finger drag (look) from a
     // two-finger gesture (pinch-zoom) on touch devices.
@@ -31,7 +39,9 @@ export class PanoramaControls {
     this._lonStart = 0
     this._latStart = 0
     this._pinchStartDist = 0
-    this._pinchStartFov = 0
+    this._pinchStartHfov = 0
+    this._lastHfov = null
+    this._lastAspect = null
     this._target = new THREE.Vector3()
 
     this._bind()
@@ -52,12 +62,11 @@ export class PanoramaControls {
       this._pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
       if (this._pointers.size >= 2) {
-        // Two fingers → pinch to zoom (adjust FOV by the distance ratio).
+        // Two fingers → pinch to zoom (adjust horizontal FOV by the distance ratio).
         const dist = this._pinchDistance()
         if (this._pinchStartDist > 0) {
-          const fov = this._pinchStartFov * (this._pinchStartDist / dist)
-          this.camera.fov = THREE.MathUtils.clamp(fov, this.minFov, this.maxFov)
-          this.camera.updateProjectionMatrix()
+          const hfov = this._pinchStartHfov * (this._pinchStartDist / dist)
+          this.hfov = THREE.MathUtils.clamp(hfov, this.minHfov, this.maxHfov)
         }
         return
       }
@@ -76,9 +85,8 @@ export class PanoramaControls {
     }
     this._onWheel = (e) => {
       e.preventDefault()
-      const fov = this.camera.fov + e.deltaY * 0.05
-      this.camera.fov = THREE.MathUtils.clamp(fov, this.minFov, this.maxFov)
-      this.camera.updateProjectionMatrix()
+      const hfov = this.hfov + e.deltaY * 0.05
+      this.hfov = THREE.MathUtils.clamp(hfov, this.minHfov, this.maxHfov)
     }
 
     const el = this.domElement
@@ -101,7 +109,7 @@ export class PanoramaControls {
 
   _startPinch() {
     this._pinchStartDist = this._pinchDistance()
-    this._pinchStartFov = this.camera.fov
+    this._pinchStartHfov = this.hfov
   }
 
   _pinchDistance() {
@@ -109,7 +117,24 @@ export class PanoramaControls {
     return Math.hypot(a.x - b.x, a.y - b.y)
   }
 
+  /**
+   * Derive the camera's vertical fov from the target horizontal fov and the
+   * current aspect ratio, so coverage is consistent across orientations.
+   * Only touches the projection matrix when something actually changed.
+   */
+  _applyFov() {
+    const aspect = this.camera.aspect || 1
+    if (this.hfov === this._lastHfov && aspect === this._lastAspect) return
+    const hfovRad = THREE.MathUtils.degToRad(this.hfov)
+    const vfov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(hfovRad / 2) / aspect))
+    this.camera.fov = THREE.MathUtils.clamp(vfov, 1, this.maxVfov)
+    this.camera.updateProjectionMatrix()
+    this._lastHfov = this.hfov
+    this._lastAspect = aspect
+  }
+
   update() {
+    this._applyFov()
     const interacting = this._pointers.size > 0
     if (this.autoRotate && !interacting) this.lon += this.autoRotateSpeed
     // Clamp vertical look so you can't flip past the poles.
